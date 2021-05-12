@@ -11,7 +11,3 @@ To use Join To Create, invite the bot with the below link then run `!setup` for 
 - Invite: [discord.com/bots/jointocreate](https://discord.com/api/oauth2/authorize?client_id=838084070986350642&permissions=8&scope=bot)  
 
 If you would like to add the bot to your project then download the code as a zip and add the commands from the bot into your bot, soon we are planning on converting everything into cogs for easier addition to personal projects.
-
-### To-Do
-- [x] Create a GitHub.
-- [ ] Convert commands and features to cogs.
