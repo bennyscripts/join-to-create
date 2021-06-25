@@ -4,63 +4,21 @@ import json
 import os
 from discord.ext import commands
 
+from utils import category as categories
+from utils import channel as channels
+from utils import prefix as prefixes
+from utils import privateChannel as privateChannels
+
 # COPYRIGHT: Arty, Benny.
 
-TOKEN = json.load(open("config.json"))["token"]
-DEFAULTPREFIX = json.load(open("config.json"))["default_prefix"]
+CONFIG = json.load(open("config.json"))
+TOKEN = CONFIG["token"]
+DEFAULTPREFIX = CONFIG["default_prefix"]
 INVITE = "https://discord.com/api/oauth2/authorize?client_id=838084070986350642&permissions=8&scope=bot"
-
 EMBEDFOOTER = "Developed by Arty & Benny"
-
 STATUSTEXT = f"{DEFAULTPREFIX}help | Arty™️"
 
-def add_privateChannel(ownerId, channelId, private: bool):
-    privateChannels = json.load(open("data/privateChannels.json"))
-    privateChannels[str(ownerId)] = {}
-    privateChannels[str(ownerId)]["channelId"] = str(channelId)
-    privateChannels[str(ownerId)]["private"] = bool(private)
-    json.dump(privateChannels, open('data/privateChannels.json', 'w'))    
-
-def remove_privateChannel(ownerId):
-    privateChannels = json.load(open("data/privateChannels.json"))
-    privateChannels.pop(str(ownerId), True)
-    json.dump(privateChannels, open('data/privateChannels.json', 'w'))   
-
-def get_privateChannels(ownerId = None):
-    if ownerId is not None:
-        return json.load(open("data/privateChannels.json"))[str(ownerId)]
-
-    else:
-        return json.load(open("data/privateChannels.json"))
-
-def get_channel(guildId):
-    return json.load(open("data/channels.json"))[str(guildId)]
-
-def set_channel(guildId, channelId):
-    channels = json.load(open("data/channels.json"))
-    channels[str(guildId)] = str(channelId)
-    json.dump(channels, open('data/channels.json', 'w'))
-
-def get_category(guildId):
-    return json.load(open("data/categories.json"))[str(guildId)]
-
-def set_category(guildId, categoryId):
-    categories = json.load(open("data/categories.json"))
-    categories[str(guildId)] = str(categoryId)
-    json.dump(categories, open('data/categories.json', 'w'))    
-
-def get_prefix2(bot, message):
-    return json.load(open("data/prefixes.json", "r"))[str(message.guild.id)]
-
-def get_prefix(guildId):
-    return json.load(open("data/prefixes.json", "r"))[str(guildId)]
-
-def set_prefix(guildId, prefix):
-    prefixes = json.load(open("data/prefixes.json"))
-    prefixes[str(guildId)] = str(prefix)
-    json.dump(prefixes, open('data/prefixes.json', 'w'))
-
-bot = commands.Bot(command_prefix=get_prefix2, activity=discord.Game(STATUSTEXT))
+bot = commands.Bot(command_prefix=prefixes.get2, activity=discord.Game(STATUSTEXT))
 bot.remove_command("help")
 
 @bot.event
@@ -70,19 +28,19 @@ async def on_ready():
 @bot.event
 async def on_command_error(ctx, error):
     if isinstance(error, commands.CommandNotFound):
-        embed = discord.Embed(title="\❌ Error", description="That command doesn't exist.")
+        embed = discord.Embed(title="\❌ Error", description="That command doesn't exist.", color=discord.Color.red())
         embed.set_footer(text=EMBEDFOOTER)
         
         await ctx.send(embed=embed)
 
     elif isinstance(error, commands.BadArgument):
-        embed = discord.Embed(title="\❌ Error", description="Missing an argument.")
+        embed = discord.Embed(title="\❌ Error", description="Missing an argument.", color=discord.Color.red())
         embed.set_footer(text=EMBEDFOOTER)
         
         await ctx.send(embed=embed)
 
     else:
-        embed = discord.Embed(title="\❌ Error", description="There was a big error that I can't handle* \😩")
+        embed = discord.Embed(title="\❌ Error", description="There was a big error that I can't handle* \😩", color=discord.Color.red())
         embed.set_footer(text=EMBEDFOOTER)        
         
         await ctx.send(embed=embed)
@@ -92,30 +50,30 @@ async def on_command_error(ctx, error):
 async def on_guild_join(guild):
     category = await guild.create_category(name='Private Channels')
     channel = await category.create_voice_channel("➕ New Room")
-    set_channel(guild.id, channel.id)
-    set_category(guild.id, category.id)
-    set_prefix(guild.id, DEFAULTPREFIX)
+    channels.set(guild.id, channel.id)
+    categories.set(guild.id, category.id)
+    prefixes.set(guild.id, DEFAULTPREFIX)
 
 @bot.event
 async def on_voice_state_update(member, before, after):    
     if before.channel is None and after.channel is not None:
-        if after.channel.id == int(get_channel(member.guild.id)):
+        if after.channel.id == int(channels.get(member.guild.id)):
             if str(member.id) not in json.load(open("data/privateChannels.json")):
-                category = discord.utils.get(member.guild.categories, id=int(get_category(member.guild.id)))
-                privateChannel = await category.create_voice_channel(f"{member}'s room")
-                add_privateChannel(f"{member.id}", f"{privateChannel.id}", False)
-                await member.move_to(privateChannel)                
+                category = discord.utils.get(member.guild.categories, id=int(categories.get(member.guild.id)))
+                privChannel = await category.create_voice_channel(f"{member}'s room")
+                privateChannels.add(f"{member.id}", f"{privChannel.id}", False)
+                await member.move_to(privChannel)     
 
 @bot.command(aliases=["cmds", "commands"])
 async def help(ctx):    
-    prefix = get_prefix(ctx.guild.id)
+    prefix = prefixes.get(ctx.guild.id)
     helpmsg = f"""
 - `{prefix}`invite : The bots invite link.
 - `{prefix}`setup : Setup the bot.
 - `{prefix}`vc : Voice channel commands.
 """
 
-    embed = discord.Embed(title="\📖 Commands", description=helpmsg)
+    embed = discord.Embed(title="\📖 Commands", description=helpmsg, color=discord.Color.blurple())
     embed.set_footer(text=EMBEDFOOTER)
 
     await ctx.send(embed=embed)
@@ -127,7 +85,7 @@ Invite me with the link below!
 - <{INVITE}>
     """
 
-    embed = discord.Embed(title="\💨 Invite", description=msg)
+    embed = discord.Embed(title="\💨 Invite", description=msg, color=discord.Color.blurple())
     embed.set_footer(text=EMBEDFOOTER)
 
     await ctx.send(embed=embed)
@@ -136,14 +94,14 @@ Invite me with the link below!
 async def vc(ctx):
     if str(ctx.author.id) in json.load(open("data/privateChannels.json")):
         if ctx.invoked_subcommand is None:
-            prefix = get_prefix(ctx.guild.id)
-            embed = discord.Embed(title="\🎙️ Voice Channel", description=f"Commands:\n- *`{prefix}vc me`*\n- *`{prefix}vc close`*\n- *`{prefix}vc private`*")
+            prefix = prefixes.get(ctx.guild.id)
+            embed = discord.Embed(title="\🎙️ Voice Channel", description=f"- `{prefix}`vc me\n- `{prefix}`vc close\n- `{prefix}`vc private", color=discord.Color.blurple())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)
 
     else:
-        embed = discord.Embed(title="\❌ Error", description="You dont own a voice channel.")
+        embed = discord.Embed(title="\❌ Error", description="You dont own a voice channel.", color=discord.Color.red())
         embed.set_footer(text=EMBEDFOOTER)
 
         await ctx.send(embed=embed)
@@ -154,7 +112,7 @@ async def me(ctx):
         private = json.load(open("data/privateChannels.json"))[f"{ctx.author.id}"]["private"]
         channel = discord.utils.get(ctx.guild.channels, id=int(json.load(open("data/privateChannels.json"))[f"{ctx.author.id}"]["channelId"]))
 
-        embed = discord.Embed(title="\🎙️ Your Channel", description=f"*Channel : `{channel.name}`*\n- *Private : `{private}`*")
+        embed = discord.Embed(title="\🎙️ Your Channel", description=f"*Channel : `{channel.name}`*\n*Private : `{private}`*", color=discord.Color.blurple())
         embed.set_footer(text=EMBEDFOOTER)
 
         await ctx.send(embed=embed)
@@ -165,9 +123,9 @@ async def close(ctx):
         channel = discord.utils.get(ctx.guild.channels, id=int(json.load(open("data/privateChannels.json"))[f"{ctx.author.id}"]["channelId"]))
         await channel.delete()
 
-        remove_privateChannel(ctx.author.id)
+        privateChannels.remove(ctx.author.id)
 
-        embed = discord.Embed(title="\✔️ Success", description="Closed your channel successfully.")
+        embed = discord.Embed(title="\✔️ Success", description="Closed your channel successfully.", color=discord.Color.green())
         embed.set_footer(text=EMBEDFOOTER)
 
         await ctx.send(embed=embed)
@@ -181,20 +139,20 @@ async def private(ctx):
             await channel.set_permissions(ctx.guild.default_role, connect=False)
             await channel.set_permissions(ctx.author, connect=True)
 
-            remove_privateChannel(str(ctx.author.id))
-            add_privateChannel(str(ctx.author.id), str(channel.id), True)
+            privateChannels.remove(ctx.author.id)
+            privateChannels.add(ctx.author.id, channel.id, True)
             
-            embed = discord.Embed(title="\✔️ Success", description="Your voice channel is now private.")
+            embed = discord.Embed(title="\✔️ Success", description="Your voice channel is now private.", color=discord.Color.green())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)       
         else:
             await channel.set_permissions(ctx.guild.default_role, connect=True)
 
-            remove_privateChannel(str(ctx.author.id))
-            add_privateChannel(str(ctx.author.id), str(channel.id), False)
+            privateChannels.remove(ctx.author.id)
+            privateChannels.add(ctx.author.id, channel.id, False)
 
-            embed = discord.Embed(title="\✔️ Success", description="Your voice channel is no longer private.")
+            embed = discord.Embed(title="\✔️ Success", description="Your voice channel is no longer private.", color=discord.Color.green())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)
@@ -203,15 +161,15 @@ async def private(ctx):
 async def setup(ctx):
     if ctx.author.guild_permissions.administrator:
         if ctx.invoked_subcommand is None:
-            prefix = get_prefix(ctx.guild.id)
+            prefix = prefixes.get(ctx.guild.id)
             
-            embed = discord.Embed(title="\⚙️ Setup", description=f"Commands:\n- *`{prefix}setup channel (id)`*\n- *`{prefix}setup category (id)`*\n- *`{prefix}setup prefix (prefix)`*")
+            embed = discord.Embed(title="\⚙️ Setup", description=f"- `{prefix}`setup channel (id)\n- `{prefix}`setup category (id)\n- `{prefix}`setup prefix (prefix)", color=discord.Color.blurple())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)            
 
     else:
-        embed = discord.Embed(title="\❌ Invalid Permissions", description="Contact and admin if you believe this is incorrect.")
+        embed = discord.Embed(title="\❌ Invalid Permissions", description="Contact and admin if you believe this is incorrect.", color=discord.Color.red())
         embed.set_footer(text=EMBEDFOOTER)
 
         await ctx.send(embed=embed)
@@ -220,18 +178,18 @@ async def setup(ctx):
 async def channel(ctx, channelId: int = None):
     if ctx.author.guild_permissions.administrator:
         if channelId is not None:
-            set_channel(ctx.guild.id, channelId)
-            channel = discord.utils.get(ctx.guild.voice_channels, id=int(get_channel(ctx.guild.id)))
+            channels.set(ctx.guild.id, channelId)
+            channel = discord.utils.get(ctx.guild.voice_channels, id=int(channels.get(ctx.guild.id)))
             
-            embed = discord.Embed(title="\✔️ Channel Set", description=f"Successfully set channel to `{channel.name}`")
+            embed = discord.Embed(title="\✔️ Channel Set", description=f"Successfully set channel to `{channel.name}`", color=discord.Color.green())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)              
 
         else:
-            prefix = get_prefix(ctx.guild.id)
+            prefix = prefixes.get(ctx.guild.id)
             
-            embed = discord.Embed(title="\❌ Invalid Usage", description=f"Try: `{prefix}setup channel (id)`")
+            embed = discord.Embed(title="\❌ Invalid Usage", description=f"Try: `{prefix}setup channel (id)`", color=discord.Color.red())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)            
@@ -240,18 +198,18 @@ async def channel(ctx, channelId: int = None):
 async def category(ctx, categoryId: int = None):
     if ctx.author.guild_permissions.administrator:
         if categoryId is not None:
-            set_category(ctx.guild.id, categoryId)
-            category = discord.utils.get(ctx.guild.categories, id=int(get_category(ctx.guild.id)))
+            categories.set(ctx.guild.id, categoryId)
+            category = discord.utils.get(ctx.guild.categories, id=int(categories.get(ctx.guild.id)))
             
-            embed = discord.Embed(title="\✔️ Category Set", description=f"Successfully set category to `{category.name}`")
+            embed = discord.Embed(title="\✔️ Category Set", description=f"Successfully set category to `{category.name}`", color=discord.Color.green())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed) 
 
         else:
-            prefix = get_prefix(ctx.guild.id)
+            prefix = prefixes.get(ctx.guild.id)
             
-            embed = discord.Embed(title="\❌ Invalid Usage", description=f"Try: `{prefix}setup category (id)`")
+            embed = discord.Embed(title="\❌ Invalid Usage", description=f"Try: `{prefix}setup category (id)`", color=discord.Color.red())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)
@@ -260,18 +218,18 @@ async def category(ctx, categoryId: int = None):
 async def prefix(ctx, customPrefix: str = None):
     if ctx.author.guild_permissions.administrator:
         if customPrefix is not None:
-            set_prefix(ctx.guild.id, customPrefix)
-            prefix = get_prefix(ctx.guild.id)
+            prefixes.set(ctx.guild.id, customPrefix)
+            prefix = prefixes.get(ctx.guild.id)
             
-            embed = discord.Embed(title="\✔️ Prefix Set", description=f"Successfully set prefix to `{prefix}`")
+            embed = discord.Embed(title="\✔️ Prefix Set", description=f"Successfully set prefix to `{prefix}`", color=discord.Color.green())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)
 
         else:
-            prefix = get_prefix(ctx.guild.id)
+            prefix = prefixes.get(ctx.guild.id)
             
-            embed = discord.Embed(title="\❌ Invalid Usage", description=f"Try: `{prefix}setup prefix (prefix)`")
+            embed = discord.Embed(title="\❌ Invalid Usage", description=f"Try: `{prefix}setup prefix (prefix)`", color=discord.Color.red())
             embed.set_footer(text=EMBEDFOOTER)
 
             await ctx.send(embed=embed)
